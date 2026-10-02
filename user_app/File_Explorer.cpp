@@ -11,6 +11,11 @@
 #include <grp.h>
 #include <time.h>
 #include <iomanip>
+#include <fcntl.h>
+#include <sys/ioctl.h>
+#include <cerrno>
+
+#include "../include/capstone_ioctl.h"
 
 using namespace std;
 
@@ -933,10 +938,136 @@ void displayMenu(const string& currentPath, const string& theme) {
     cout << "  " << optionColor << "19." << RESET << " " << textColor << "📂 Unzip files" << RESET << endl;
     cout << "  " << optionColor << "20." << RESET << " " << textColor << "🎨 Change color theme" << RESET << endl;
     cout << "  " << optionColor << "21." << RESET << " " << textColor << "❓ Help/Documentation" << RESET << endl;
+    cout << "  " << optionColor << "22." << RESET << " " << textColor << "🔌 Device Driver Monitor" << RESET << endl;
     
     cout << "\n  " << RED << "0." << RESET << "  " << RED << "❌ Exit" << RESET << endl;
     
     cout << "\n" << string(58, '-') << endl;
+}
+
+void deviceDriverMonitor()
+{
+    const char* devicePath = "/dev/capstone_monitor";
+
+    cout << "\n"
+         << BOLD << CYAN
+         << "========== Linux Device Driver Monitor =========="
+         << RESET << endl;
+
+    int fd = open(devicePath, O_RDWR);
+
+    if (fd < 0)
+    {
+        cout << RED
+             << "Device driver is not currently loaded."
+             << RESET << endl;
+
+        cout << YELLOW
+             << "Expected device: "
+             << devicePath
+             << RESET << endl;
+
+        cout << "\nDriver Architecture:\n";
+        cout << "  C++ File Explorer\n";
+        cout << "          |\n";
+        cout << "          v\n";
+        cout << "  /dev/capstone_monitor\n";
+        cout << "          |\n";
+        cout << "          v\n";
+        cout << "  Linux Character Device Driver\n";
+
+        cout << "\nError: "
+             << strerror(errno)
+             << endl;
+
+        return;
+    }
+
+    int status = 0;
+    int count = 0;
+
+    if (ioctl(fd, CAPSTONE_IOCTL_GET_STATUS, &status) < 0)
+    {
+        cout << RED
+             << "Failed to get driver status."
+             << RESET << endl;
+
+        close(fd);
+        return;
+    }
+
+    if (ioctl(fd, CAPSTONE_IOCTL_GET_COUNT, &count) < 0)
+    {
+        cout << RED
+             << "Failed to get operation count."
+             << RESET << endl;
+
+        close(fd);
+        return;
+    }
+
+    cout << GREEN
+         << "\nDriver Status: "
+         << (status ? "ACTIVE" : "INACTIVE")
+         << RESET << endl;
+
+    cout << CYAN
+         << "Operation Count: "
+         << count
+         << RESET << endl;
+
+    cout << "\nOptions:\n";
+    cout << "  1. Read driver information\n";
+    cout << "  2. Reset operation counter\n";
+    cout << "  3. Return to main menu\n";
+
+    cout << "\nEnter choice: ";
+
+    int option;
+    cin >> option;
+    cin.ignore();
+
+    if (option == 1)
+    {
+        char buffer[256] = {0};
+
+        ssize_t bytesRead =
+            read(fd, buffer, sizeof(buffer) - 1);
+
+        if (bytesRead < 0)
+        {
+            cout << RED
+                 << "Failed to read from driver."
+                 << RESET << endl;
+        }
+        else
+        {
+            buffer[bytesRead] = '\0';
+
+            cout << "\n"
+                 << GREEN
+                 << buffer
+                 << RESET
+                 << endl;
+        }
+    }
+    else if (option == 2)
+    {
+        if (ioctl(fd, CAPSTONE_IOCTL_RESET) < 0)
+        {
+            cout << RED
+                 << "Failed to reset driver counter."
+                 << RESET << endl;
+        }
+        else
+        {
+            cout << GREEN
+                 << "Driver operation counter reset successfully."
+                 << RESET << endl;
+        }
+    }
+
+    close(fd);
 }
 
 int main() {
@@ -1116,6 +1247,10 @@ int main() {
             case 21:
                 explorer.showHelp();
                 break;
+
+            case 22:
+                deviceDriverMonitor();
+                break;
                 
             case 0:
                 cout << "\n" << string(60, '=') << endl;
@@ -1125,7 +1260,7 @@ int main() {
                 return 0;
                 
             default:
-                cout << RED << "❌ Invalid choice! Please select a valid option (0-21)." << RESET << endl;
+                cout << RED << "❌ Invalid choice! Please select a valid option (0-22)." << RESET << endl;
         }
         
         cout << "\n" << BOLD << CYAN << "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" << RESET << endl;
